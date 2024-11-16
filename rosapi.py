@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from PrintColours import *
-import rclpy
+from rclpy.node import Node
 from math import atan2, pow, sqrt, degrees, radians, sin, cos
 from geometry_msgs.msg import Pose, PoseStamped, Point, Quaternion
 from nav_msgs.msg import Odometry
@@ -32,9 +32,9 @@ class gnc_api:
 
         self.ns = rclpy.get_namespace()
         if self.ns == "/":
-            rclpy.loginfo(CBLUE2 + "Using default namespace" + CEND)
+            rclpy.get_logger().info(CBLUE2 + "Using default namespace" + CEND)
         else:
-            rclpy.loginfo(CBLUE2 + "Using {} namespace".format(self.ns) + CEND)
+            rclpy.get_logger().info(CBLUE2 + "Using {} namespace".format(self.ns) + CEND)
 
         self.local_pos_pub = rclpy.Publisher(
             name="{}mavros/setpoint_position/local".format(self.ns),
@@ -67,7 +67,7 @@ class gnc_api:
         self.land_client = rclpy.ServiceProxy(
             name="{}mavros/cmd/land".format(self.ns), service_class=CommandTOL
         )
-
+        
         rclpy.wait_for_service("{}mavros/cmd/takeoff".format(self.ns))
 
         self.takeoff_client = rclpy.ServiceProxy(
@@ -85,10 +85,11 @@ class gnc_api:
         self.command_client = rclpy.ServiceProxy(
             name="{}mavros/cmd/command".format(self.ns), service_class=CommandLong
         )
-        rclpy.loginfo(CBOLD + CGREEN2 + "Initialization Complete." + CEND)
+        rclpy.get_logger().info(CBOLD + CGREEN2 + "Initialization Complete." + CEND)
 
     def state_cb(self, message):
         self.current_state_g = message
+        self.get_logger().info(f"Current:Mode: {self.current_state_g.mode}, Armed: {self.current_state_g.armed}")
 
     def pose_cb(self, msg):
         """Gets the raw pose of the drone and processes it for use in control.
@@ -158,7 +159,7 @@ class gnc_api:
         srv_land = CommandTOL.Request(0, 0, 0, 0, 0)
         response = self.land_client(srv_land)
         if response.success:
-            rclpy.loginfo(
+            rclpy.get_logger().info(
                 CGREEN2 + "Land Sent {}".format(str(response.success)) + CEND)
             return 0
         else:
@@ -172,12 +173,12 @@ class gnc_api:
                 0 (int): Connected to FCU.
                 -1 (int): Failed to connect to FCU.
         """
-        rclpy.loginfo(CYELLOW2 + "Waiting for FCU connection" + CEND)
+        rclpy.get_logger().info(CYELLOW2 + "Waiting for FCU connection" + CEND)
         while not rclpy.is_shutdown() and not self.current_state_g.connected:
             rclpy.sleep(0.01)
         else:
             if self.current_state_g.connected:
-                rclpy.loginfo(CGREEN2 + "FCU connected" + CEND)
+                rclpy.get_logger().info(CGREEN2 + "FCU connected" + CEND)
                 return 0
             else:
                 rclpy.logerr(CRED2 + "Error connecting to drone's FCU" + CEND)
@@ -190,13 +191,13 @@ class gnc_api:
                 0 (int): Mission started successfully.
                 -1 (int): Failed to start mission.
         """
-        rclpy.loginfo(CYELLOW2 + CBLINK +
+        rclpy.get_logger().info(CYELLOW2 + CBLINK +
                       "Waiting for user to set mode to GUIDED" + CEND)
         while not rclpy.is_shutdown() and self.current_state_g.mode != "GUIDED":
             rclpy.sleep(0.01)
         else:
             if self.current_state_g.mode == "GUIDED":
-                rclpy.loginfo(
+                rclpy.get_logger().info(
                     CGREEN2 + "Mode set to GUIDED. Starting Mission..." + CEND)
                 return 0
             else:
@@ -216,7 +217,7 @@ class gnc_api:
         SetMode_srv = SetMode.Request(0, mode)
         response = self.set_mode_client(SetMode_srv)
         if response.mode_sent:
-            rclpy.loginfo(CGREEN2 + "SetMode Was successful" + CEND)
+            rclpy.get_logger().info(CGREEN2 + "SetMode Was successful" + CEND)
             return 0
         else:
             rclpy.logerr(CRED2 + "SetMode has failed" + CEND)
@@ -239,14 +240,14 @@ class gnc_api:
         speed_cmd.param3 = -1
         speed_cmd.param4 = 0
 
-        rclpy.loginfo(
+        rclpy.get_logger().info(
             CBLUE2 + "Setting speed to {}m/s".format(str(speed_mps)) + CEND)
         response = self.command_client(speed_cmd)
 
         if response.success:
-            rclpy.loginfo(
+            rclpy.get_logger().info(
                 CGREEN2 + "Speed set successfully with code {}".format(str(response.success)) + CEND)
-            rclpy.loginfo(
+            rclpy.get_logger().info(
                 CGREEN2 + "Change Speed result was {}".format(str(response.result)) + CEND)
             return 0
         else:
@@ -265,7 +266,7 @@ class gnc_api:
         self.local_desired_heading_g = heading
         heading = heading + self.correction_heading_g + self.local_offset_g
 
-        rclpy.loginfo("The desired heading is {}".format(
+        rclpy.get_logger().info("The desired heading is {}".format(
             self.local_desired_heading_g))
 
         yaw = radians(heading)
@@ -311,7 +312,7 @@ class gnc_api:
 
         z = Zlocal + self.correction_vector_g.position.z + self.local_offset_pose_g.z
 
-        rclpy.loginfo(
+        rclpy.get_logger().info(
             "Destination set to x:{} y:{} z:{} origin frame".format(x, y, z))
 
         self.waypoint_g.pose.position = Point(x, y, z)
@@ -331,7 +332,7 @@ class gnc_api:
             self.local_pos_pub.publish(self.waypoint_g)
             rclpy.sleep(0.01)
 
-        rclpy.loginfo(CBLUE2 + "Arming Drone" + CEND)
+        rclpy.get_logger().info(CBLUE2 + "Arming Drone" + CEND)
 
         arm_request = CommandBool.Request(True)
 
@@ -341,7 +342,7 @@ class gnc_api:
             self.local_pos_pub.publish(self.waypoint_g)
         else:
             if response.success:
-                rclpy.loginfo(CGREEN2 + "Arming successful" + CEND)
+                rclpy.get_logger().info(CGREEN2 + "Arming successful" + CEND)
                 return 0
             else:
                 rclpy.logerr(CRED2 + "Arming failed" + CEND)
@@ -362,7 +363,7 @@ class gnc_api:
         response = self.takeoff_client(takeoff_srv)
         rclpy.sleep(3)
         if response.success:
-            rclpy.loginfo(CGREEN2 + "Takeoff successful" + CEND)
+            rclpy.get_logger().info(CGREEN2 + "Takeoff successful" + CEND)
             return 0
         else:
             rclpy.logerr(CRED2 + "Takeoff failed" + CEND)
@@ -395,8 +396,8 @@ class gnc_api:
         self.local_offset_pose_g.z /= 30.0
         self.local_offset_g /= 30.0
 
-        rclpy.loginfo(CBLUE2 + "Coordinate offset set" + CEND)
-        rclpy.loginfo(
+        rclpy.get_logger().info(CBLUE2 + "Coordinate offset set" + CEND)
+        rclpy.get_logger().info(
             CGREEN2 + "The X-Axis is facing: {}".format(self.local_offset_g) + CEND)
 
     def check_waypoint_reached(self, pos_tol=0.3, head_tol=0.01):
@@ -447,4 +448,5 @@ class gnc_api:
             self.set_speed(self, abs(velocity))
             self.set_heading(-1*self.get_current_heading(self))
 def main():
-    gnc_api.check_waypoint_reached()
+    MV_api = gnc_api()
+    MV_api.state_cb("hi")   
