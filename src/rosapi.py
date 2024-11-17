@@ -2,7 +2,6 @@
 #from PrintColours import *
 import rclpy
 from rclpy.node import Node
-
 from math import atan2, pow, sqrt, degrees, radians, sin, cos
 from geometry_msgs.msg import Pose, PoseStamped, Point, Quaternion
 from nav_msgs.msg import Odometry
@@ -18,10 +17,10 @@ from mavros_msgs.srv import SetMode
 
 
 class gnc_api(Node):
-    def __init__(self):
+    def __init__(self, node_name: str, namespace: str):
         """This function is called at the beginning of a program and will start of the communication links to the FCU.
         """
-        super().__init__('gnc_api_node')
+        super().__init__(node_name, namespace)
 
         #drone pose and state 
         self.current_state_g = State()
@@ -36,7 +35,7 @@ class gnc_api(Node):
         self.local_desired_heading_g = 0.0
 
         #Namespace and logging 
-        self.ns = rclpy.get_namespace()
+        self.ns = namespace
         if self.ns == "/":
             self.get_logger().info("Using default namespace")
         else:
@@ -76,15 +75,17 @@ class gnc_api(Node):
         self.set_mode_client = self.create_client(SetMode, f'{self.ns}mavros/set_mode')
         self.command_client = self.create_client(CommandLong, f'{self.ns}mavros/cmd/command')
 
-        self.wait_for_services()
-        self.get_logger().info("Initialization Complete")
-
         def wait_for_services(self):
             self.arming_client.wait_for_service()
             self.takeoff_client.wait_for_service()
             self.land_client.wait_for_service()
             self.set_mode_client.wait_for_service()
             self.command_client.wait_for_service()
+            
+        wait_for_services(self)
+        self.get_logger().info("Initialization Complete")
+
+        
 
     def state_cb(self, message):
         self.current_state_g = message
@@ -479,13 +480,19 @@ class gnc_api(Node):
             self.set_speed(self, abs(velocity))
             self.set_heading(-1*self.get_current_heading(self))
 
-def main():
-    rclpy.init()
-    gnc = gnc_api()
+def main(args = None):
+    rclpy.init(args = args)
+
+    node_name = "gnc_api_node"
+    namespace = "gnc_namespace"
+
+    gnc = gnc_api(node_name=node_name, namespace=namespace)
 
     try:
         gnc.wait4connect()
+        gnc.wait_for_services()
         gnc.set_mode("GUIDED")
+        gnc.arm()
         gnc.takeoff(10.0)
         gnc.set_destination(10, 10, 10, 90)
         rclpy.spin(gnc)
