@@ -2,7 +2,10 @@
 #!/user/bin/env python3
 #from PrintColours import *
 import rclpy
+import time
 from rclpy.node import Node
+from rclpy.duration import Duration
+from rclpy import spin_once
 from math import atan2, pow, sqrt, degrees, radians, sin, cos
 from geometry_msgs.msg import Pose, PoseStamped, Point, Quaternion
 from nav_msgs.msg import Odometry
@@ -25,6 +28,7 @@ class gnc_api(Node):
         super().__init__(node_name)
         print("super")
         #drone pose and state 
+        self.node = rclpy.create_node('gnc_api_node')
         self.current_state_g = State()
         self.current_pose_g = Odometry() #current position of drone in ENU frame
         self.correction_vector_g = Pose()
@@ -74,11 +78,11 @@ class gnc_api(Node):
         '''
         print("set subscribers")
         # Service clients
-        self.arming_client = self.create_client(CommandBool, 'mavros/cmd/arming')
-        self.takeoff_client = self.create_client(CommandTOL, 'mavros/cmd/takeoff')
-        self.land_client = self.create_client(CommandTOL, 'mavros/cmd/land')
-        self.set_mode_client = self.create_client(SetMode, 'mavros/set_mode')
-        self.command_client = self.create_client(CommandLong, 'mavros/cmd/command')
+        self.arming_client = self.node.create_client(CommandBool, 'mavros/cmd/arming')
+        self.takeoff_client = self.node.create_client(CommandTOL, 'mavros/cmd/takeoff')
+        self.land_client = self.node.create_client(CommandTOL, 'mavros/cmd/land')
+        self.set_mode_client = self.node.create_client(SetMode, 'mavros/set_mode')
+        self.command_client = self.node.create_client(CommandLong, 'mavros/cmd/command')
         print("set clients")
         def wait_for_services(self):
             self.arming_client.wait_for_service()
@@ -226,7 +230,7 @@ class gnc_api(Node):
         self.get_logger().info(
                       "Waiting for user to set mode to GUIDED")
         while rclpy.ok() and self.current_state_g.mode != "GUIDED":
-            rclpy.sleep(0.01)
+            time.sleep(0.01)
         else:
             if self.current_state_g.mode == "GUIDED":
                 self.get_logger().info(
@@ -299,25 +303,28 @@ class gnc_api(Node):
                 "Speed set result was {}".format(str(response.result)))
             return False
 
+
+
     def set_heading(self, heading):
-        """This function is used to specify the drone's heading in the local reference frame. Psi is a counter clockwise rotation following the drone's reference frame defined by the x axis through the right side of the drone with the y axis through the front of the drone.
+        """This function is used to specify the drone's heading in the local reference frame. 
+        Psi is a counterclockwise rotation following the drone's reference frame defined by the x axis through the right side of the drone 
+        with the y axis through the front of the drone.
 
         Args:
-                heading (Float): θ(degree) Heading angle of the drone.
+                heading (float): θ(degree) Heading angle of the drone.
         """
         self.local_desired_heading_g = heading
         adjusted_heading = heading + self.correction_heading_g + self.local_offset_g
 
-        self.get_logger().info("The desired heading is {} degrees".format(
-            self.local_desired_heading_g))
-        
-        self.get_logger().info("The adjusted heading with offsets is {} degrees".format(
-            self.local_desired_heading_g))
-        
+        self.get_logger().info("The desired heading is {} degrees".format(self.local_desired_heading_g))
+        self.get_logger().info("The adjusted heading with offsets is {} degrees".format(adjusted_heading))
+
+        # Convert adjusted heading from degrees to radians
         yaw = radians(adjusted_heading)
         pitch = 0.0
         roll = 0.0
 
+        # Convert Euler angles to quaternion
         cy = cos(yaw * 0.5)
         sy = sin(yaw * 0.5)
 
@@ -332,52 +339,58 @@ class gnc_api(Node):
         qy = cy * cr * sp + sy * sr * cp
         qz = sy * cr * cp - cy * sr * sp
 
-        #set waypoint orientation
-        self.waypoint_g.pose.orientation = Quaternion(qx, qy, qz, qw)
-        self.get_logger().info("Heading quaternion set to: "
-                           f"x={qx}, y={qy}, z={qz}, w={qw}")
+        # Set waypoint orientation
+        self.waypoint_g.pose.orientation = Quaternion(x=qx, y=qy, z=qz, w=qw)  # Fixed: Quaternion constructor
+        self.get_logger().info(f"Heading quaternion set to: x={qx}, y={qy}, z={qz}, w={qw}")
+
 
     def set_destination(self, x, y, z, psi):
-        """This function is used to command the drone to fly to a waypoint. These waypoints should be specified in the local reference frame. This is typically defined from the location the drone is launched. Psi is counter clockwise rotation following the drone's reference frame defined by the x axis through the right side of the drone with the y axis through the front of the drone.
+        """This function is used to command the drone to fly to a waypoint. These waypoints should be specified in the local reference frame. This is typically defined from the location the drone is launched. Psi is counterclockwise rotation following the drone's reference frame defined by the x axis through the right side of the drone with the y axis through the front of the drone.
 
         Args:
-                x (Float): x(m) Distance with respect to your local frame.
-                y (Float): y(m) Distance with respect to your local frame.
-                z (Float): z(m) Distance with respect to your local frame.
-                psi (Float): θ(degree) Heading angle of the drone.
+                x (float): x (m) Distance with respect to your local frame.
+                y (float): y (m) Distance with respect to your local frame.
+                z (float): z (m) Distance with respect to your local frame.
+                psi (float): θ (degree) Heading angle of the drone.
         """
+        # Set the desired heading (psi)
         self.set_heading(psi)
 
-        #finding the rotation angle for local frame correction
-        theta = radians((self.correction_heading_g + self.local_offset_g - 90))
+        # Calculate the rotation angle for local frame correction
+        theta = radians(self.correction_heading_g + self.local_offset_g - 90)
 
-        #convert local coordinates to global frame
-        Xlocal = x * cos(theta) - y * sin(theta)
-        Ylocal = x * sin(theta) + y * cos(theta)
-        Zlocal = z
+        # Convert local coordinates to global frame
+        x_local = x * cos(theta) - y * sin(theta)
+        y_local = x * sin(theta) + y * cos(theta)
+        z_local = z
 
-        #Applying global offset corrections
-        x_global = Xlocal + self.correction_vector_g.position.x + self.local_offset_pose_g.x
-        y_global = Ylocal + self.correction_vector_g.position.y + self.local_offset_pose_g.y
-        z_global = Zlocal + self.correction_vector_g.position.z + self.local_offset_pose_g.z
+        # Apply global offset corrections
+        x_global = x_local + self.correction_vector_g.position.x + self.local_offset_pose_g.x
+        y_global = y_local + self.correction_vector_g.position.y + self.local_offset_pose_g.y
+        z_global = z_local + self.correction_vector_g.position.z + self.local_offset_pose_g.z
 
+        # Convert psi (heading) to radians for quaternion
         yaw = radians(psi)
 
-        #set wapoint orientation
-        self.waypoint.pose.orientation = Quaternion(
+        # Set the waypoint orientation as a quaternion
+        self.waypoint_g.pose.orientation = Quaternion(
             x=0.0,
             y=0.0,
             z=sin(yaw / 2),
             w=cos(yaw / 2)
         )
 
+        # Log the destination set in the global frame
         self.get_logger().info(
-            "Destination set to x:{} y:{} z:{} origin frame".format(x_global, y_global, z_global))
+            "Destination set to x:{} y:{} z:{} (global frame)".format(x_global, y_global, z_global)
+        )
 
-        self.waypoint_g.pose.position = Point(x_global, y_global, z_global)
+        # Set the position of the waypoint in the global frame using keyword arguments
+        self.waypoint_g.pose.position = Point(x=x_global, y=y_global, z=z_global)
 
-        self.local_pos_pub.publish(self.waypoint_g)
-    
+        # Publish the waypoint to the local position publisher
+        self.local_pose_pub.publish(self.waypoint_g)
+        
     def arm(self):
         """Arms the drone for takeoff.
 
@@ -385,26 +398,39 @@ class gnc_api(Node):
                 True (boolean): Arming successful.
                 False (boolean): Arming unsuccessful.
         """
-        self.set_destination(0,0,0,0)
+        # Set the destination (you should have defined set_destination elsewhere)
+        self.set_destination(0, 0, 0, 0)
 
+        # Publish the waypoint repeatedly (if needed)
         for _ in range(100):
-            self.local_pos_pub.publish(self.waypoint_g)
-            rclpy.sleep(0.01)
+            self.local_pose_pub.publish(self.waypoint_g)
+            time.sleep(0.01)
 
-        self.get_logger().info("Arming Drone")
+        self.node.get_logger().info("Arming Drone")
 
-        arm_request = CommandBool.Request(value = True)
+        # Create the arm request
+        arm_request = CommandBool.Request()
+        arm_request.value = True  # True to arm the drone
 
+        # Send the arm request asynchronously
+        future = self.arming_client.async_send_request(arm_request)
+
+        # Wait until the drone is armed or timeout occurs
         while rclpy.ok() and not self.current_state_g.armed:
-            rclpy.sleep(0.1)
-            response = self.arming_client(arm_request)
-            self.local_pos_pub.publish(self.waypoint_g)
+            time.sleep(0.1)  # Sleep for a short duration
+            self.local_pose_pub.publish(self.waypoint_g)  # Publish the waypoint again
 
-        if not response.success:
-            self.get_logger().error("Arming Failed")
+        # Wait for the future response (to confirm arming)
+        rclpy.spin_until_future_complete(self.node, future)
+
+        # Check the response
+        response = future.result()
+
+        if response is None or not response.success:
+            self.node.get_logger().error("Arming Failed")
             return False
         else:
-            self.get_logger().info("Arming successful")
+            self.node.get_logger().info("Arming successful")
             return True
         
     def takeoff(self, takeoff_alt):
@@ -420,7 +446,7 @@ class gnc_api(Node):
         self.arm()
         takeoff_srv = CommandTOL.Request(altitude = takeoff_alt)
         response = self.takeoff_client(takeoff_srv)
-        rclpy.sleep(3)
+        time.sleep(3)
         if response.success:
             self.get_logger().info("Takeoff successful")
             return True
@@ -433,7 +459,7 @@ class gnc_api(Node):
         self.local_offset_g = 0.0
 
         for i in range(30):
-            rclpy.sleep(0.1)
+            time.sleep(0.1)
 
             q0, q1, q2, q3 = (
                 self.current_pose_g.pose.pose.orientation.w,
@@ -469,7 +495,7 @@ class gnc_api(Node):
                 True (bool): Waypoint reached successfully.
                 False (bool): Failed to reach Waypoint.
         """
-        self.local_pos_pub.publish(self.waypoint_g)
+        self.local_pose_pub.publish(self.waypoint_g)
 
         dx = abs(
             self.waypoint_g.pose.position.x - self.current_pose_g.pose.pose.position.x
