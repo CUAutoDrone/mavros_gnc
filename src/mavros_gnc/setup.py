@@ -19,7 +19,7 @@ setup(
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
-        'console_scripts': [ 'gnc_node = mavros_gnc.rosapi:main'
+        'console_scripts': [ 'gnc_api = mavros_gnc.gnc_api:main'
         ],
     },
 )

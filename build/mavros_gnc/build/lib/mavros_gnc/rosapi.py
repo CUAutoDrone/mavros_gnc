@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+#!/user/bin/env python3
 #from PrintColours import *
 import rclpy
 from rclpy.node import Node
@@ -20,7 +21,7 @@ class gnc_api(Node):
     def __init__(self, node_name: str, namespace: str):
         """This function is called at the beginning of a program and will start of the communication links to the FCU.
         """
-        super().__init__(node_name, namespace)
+        super().__init__(node_name)
 
         #drone pose and state 
         self.current_state_g = State()
@@ -481,6 +482,7 @@ class gnc_api(Node):
             self.set_heading(-1*self.get_current_heading(self))
 
 def main(args = None):
+    print("starting gnc")
     rclpy.init(args = args)
 
     node_name = "gnc_api_node"
@@ -490,8 +492,11 @@ def main(args = None):
 
     try:
         gnc.wait4connect()
+        print("connect gnc")
         gnc.wait_for_services()
+        print("wait gnc")
         gnc.set_mode("GUIDED")
+        print("set mode")
         gnc.arm()
         gnc.takeoff(10.0)
         gnc.set_destination(10, 10, 10, 90)
@@ -501,6 +506,8 @@ def main(args = None):
     finally:
         gnc.destroy_node()
         rclpy.shutdown()
+        print("shutting down")
+    
 
 
 if __name__ == "__main__":

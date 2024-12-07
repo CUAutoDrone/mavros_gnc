@@ -10,7 +10,7 @@ setup.py
 ../../build/mavros_gnc/mavros_gnc.egg-info/zip-safe
 mavros_gnc/PrintColours.py
 mavros_gnc/__init__.py
-mavros_gnc/rosapi.py
+mavros_gnc/gnc_api.py
 resource/mavros_gnc
 test/test_copyright.py
 test/test_flake8.py

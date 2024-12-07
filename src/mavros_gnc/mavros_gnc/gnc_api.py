@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+#!/user/bin/env python3
 #from PrintColours import *
 import rclpy
 from rclpy.node import Node
@@ -20,8 +21,9 @@ class gnc_api(Node):
     def __init__(self, node_name: str, namespace: str):
         """This function is called at the beginning of a program and will start of the communication links to the FCU.
         """
-        super().__init__(node_name, namespace)
-
+        print("start init")
+        super().__init__(node_name)
+        print("super")
         #drone pose and state 
         self.current_state_g = State()
         self.current_pose_g = Odometry() #current position of drone in ENU frame
@@ -33,16 +35,17 @@ class gnc_api(Node):
         self.local_offset_g = 0.0 #angular offset (in degrees) between the ENU frame and local frame
         self.correction_heading_g = 0.0
         self.local_desired_heading_g = 0.0
-
+        print("set drone pos")
         #Namespace and logging 
         self.ns = namespace
         if self.ns == "/":
             self.get_logger().info("Using default namespace")
         else:
             self.get_logger().info("Using {} namespace".format(self.ns))
-
+        print("set namespace")
         #Publishers
         self.local_pose_pub = self.create_publisher(PoseStamped, f'{self.ns}mavros/setpoint_position/local', 10)
+        print("set publisher")
         '''
         self.local_pos_pub = rclpy.Publisher(
             name="{}mavros/setpoint_position/local".format(self.ns),
@@ -68,23 +71,25 @@ class gnc_api(Node):
             callback=self.state_cb,
         )
         '''
+        print("set subscribers")
         # Service clients
         self.arming_client = self.create_client(CommandBool, f'{self.ns}mavros/cmd/arming')
         self.takeoff_client = self.create_client(CommandTOL, f'{self.ns}mavros/cmd/takeoff')
         self.land_client = self.create_client(CommandTOL, f'{self.ns}mavros/cmd/land')
         self.set_mode_client = self.create_client(SetMode, f'{self.ns}mavros/set_mode')
         self.command_client = self.create_client(CommandLong, f'{self.ns}mavros/cmd/command')
-
+        print("set clients")
         def wait_for_services(self):
             self.arming_client.wait_for_service()
             self.takeoff_client.wait_for_service()
             self.land_client.wait_for_service()
             self.set_mode_client.wait_for_service()
             self.command_client.wait_for_service()
-            
+        print("define wait for services")
         wait_for_services(self)
+        print("done wait for services")
         self.get_logger().info("Initialization Complete")
-
+        print("init finished")
         
 
     def state_cb(self, message):
@@ -481,26 +486,32 @@ class gnc_api(Node):
             self.set_heading(-1*self.get_current_heading(self))
 
 def main(args = None):
+    print("starting gnc")
     rclpy.init(args = args)
 
     node_name = "gnc_api_node"
     namespace = "gnc_namespace"
 
     gnc = gnc_api(node_name=node_name, namespace=namespace)
-
-    try:
-        gnc.wait4connect()
-        gnc.wait_for_services()
-        gnc.set_mode("GUIDED")
-        gnc.arm()
-        gnc.takeoff(10.0)
-        gnc.set_destination(10, 10, 10, 90)
-        rclpy.spin(gnc)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        gnc.destroy_node()
-        rclpy.shutdown()
+    print("done")
+    # try:
+    #     gnc.wait4connect()
+    #     print("connect gnc")
+    #     gnc.wait_for_services()
+    #     print("wait gnc")
+    #     gnc.set_mode("GUIDED")
+    #     print("set mode")
+    #     gnc.arm()
+    #     gnc.takeoff(10.0)
+    #     gnc.set_destination(10, 10, 10, 90)
+    #     rclpy.spin(gnc)
+    # except KeyboardInterrupt:
+    #     pass
+    # finally:
+    #     gnc.destroy_node()
+    #     rclpy.shutdown()
+    #     print("shutting down")
+    
 
 
 if __name__ == "__main__":
