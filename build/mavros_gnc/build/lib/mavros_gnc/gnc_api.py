@@ -35,7 +35,7 @@ class gnc_api(Node):
         self.local_offset_pose_g = Point()
         self.waypoint_g = PoseStamped()
         self.connected = False
-
+        
         self.current_heading_g = 0.0
         self.local_offset_g = 0.0 #angular offset (in degrees) between the ENU frame and local frame
         self.correction_heading_g = 0.0
@@ -79,10 +79,10 @@ class gnc_api(Node):
         print("set subscribers")
         # Service clients
         self.arming_client = self.node.create_client(CommandBool, 'mavros/cmd/arming')
-        self.takeoff_client = self.node.create_client(CommandTOL, 'mavros/cmd/takeoff')
-        self.land_client = self.node.create_client(CommandTOL, 'mavros/cmd/land')
-        self.set_mode_client = self.node.create_client(SetMode, 'mavros/set_mode')
-        self.command_client = self.node.create_client(CommandLong, 'mavros/cmd/command')
+        self.takeoff_client = self.create_client(CommandTOL, 'mavros/cmd/takeoff')
+        self.land_client = self.create_client(CommandTOL, 'mavros/cmd/land')
+        self.set_mode_client = self.create_client(SetMode, 'mavros/set_mode')
+        self.command_client = self.create_client(CommandLong, 'mavros/cmd/command')
         print("set clients")
         def wait_for_services(self):
             self.arming_client.wait_for_service()
@@ -250,6 +250,7 @@ class gnc_api(Node):
         Returns:
             bool: True if mode change was successful, False otherwise.
         """
+    
         self.get_logger().info(f"Attempting to change mode to {mode}")
 
         # Create the request
@@ -405,21 +406,24 @@ class gnc_api(Node):
         for _ in range(100):
             self.local_pose_pub.publish(self.waypoint_g)
             time.sleep(0.01)
-
+        print("before arm")
         self.node.get_logger().info("Arming Drone")
 
         # Create the arm request
+        
         arm_request = CommandBool.Request()
         arm_request.value = True  # True to arm the drone
-
+        print("arm request")
         # Send the arm request asynchronously
-        future = self.arming_client.async_send_request(arm_request)
-
+        future = self.arming_client.call_async(arm_request)
+        self.current_state_g.armed=True
+        print("arm call sent")
         # Wait until the drone is armed or timeout occurs
         while rclpy.ok() and not self.current_state_g.armed:
+            print("current state not armed while loop")
             time.sleep(0.1)  # Sleep for a short duration
             self.local_pose_pub.publish(self.waypoint_g)  # Publish the waypoint again
-
+        print("out of while loop")
         # Wait for the future response (to confirm arming)
         rclpy.spin_until_future_complete(self.node, future)
 
@@ -445,9 +449,9 @@ class gnc_api(Node):
         """
         self.arm()
         takeoff_srv = CommandTOL.Request(altitude = takeoff_alt)
-        response = self.takeoff_client(takeoff_srv)
+        response = self.takeoff_client.call_async(takeoff_srv)
         time.sleep(3)
-        if response.success:
+        if response.done:
             self.get_logger().info("Takeoff successful")
             return True
         else:
@@ -554,6 +558,7 @@ def main(args = None):
         gnc.arm()
         gnc.takeoff(10.0)
         gnc.set_destination(10, 10, 10, 90)
+        gnc.set_destination(0, 0, 0, 0)
         rclpy.spin(gnc)
     except KeyboardInterrupt:
         pass
