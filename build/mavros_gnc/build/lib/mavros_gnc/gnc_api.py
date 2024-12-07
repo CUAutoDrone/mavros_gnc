@@ -30,6 +30,7 @@ class gnc_api(Node):
         self.correction_vector_g = Pose()
         self.local_offset_pose_g = Point()
         self.waypoint_g = PoseStamped()
+        self.connected = False
 
         self.current_heading_g = 0.0
         self.local_offset_g = 0.0 #angular offset (in degrees) between the ENU frame and local frame
@@ -73,11 +74,11 @@ class gnc_api(Node):
         '''
         print("set subscribers")
         # Service clients
-        self.arming_client = self.create_client(CommandBool, f'{self.ns}mavros/cmd/arming')
-        self.takeoff_client = self.create_client(CommandTOL, f'{self.ns}mavros/cmd/takeoff')
-        self.land_client = self.create_client(CommandTOL, f'{self.ns}mavros/cmd/land')
-        self.set_mode_client = self.create_client(SetMode, f'{self.ns}mavros/set_mode')
-        self.command_client = self.create_client(CommandLong, f'{self.ns}mavros/cmd/command')
+        self.arming_client = self.create_client(CommandBool, 'mavros/cmd/arming')
+        self.takeoff_client = self.create_client(CommandTOL, 'mavros/cmd/takeoff')
+        self.land_client = self.create_client(CommandTOL, 'mavros/cmd/land')
+        self.set_mode_client = self.create_client(SetMode, 'mavros/set_mode')
+        self.command_client = self.create_client(CommandLong, 'mavros/cmd/command')
         print("set clients")
         def wait_for_services(self):
             self.arming_client.wait_for_service()
@@ -87,6 +88,7 @@ class gnc_api(Node):
             self.command_client.wait_for_service()
         print("define wait for services")
         wait_for_services(self)
+        self.connected = True
         print("done wait for services")
         self.get_logger().info("Initialization Complete")
         print("init finished")
@@ -183,26 +185,37 @@ class gnc_api(Node):
             self.get_logger().error("An error occurred while sending Land Command: {}".format(e))
             return False
         
-    def wait4connect(self):
+    # def wait4connect(self):
         """Wait for connect is a function that will hold the program until communication with the FCU is established.
 
         Returns:
                 True (bool): Connected to FCU.
                 False (bool): Failed to connect to FCU.
         """
-        rate = rclpy.rate.Rate(100)
+        # rate = rclpy.rate.Rate(100)
 
-        self.get_logger().info("Waiting for FCU connection")
-        while rclpy.ok() and not self.current_state_g.connected:
-            rate.sleep()
-        else:
-            if self.current_state_g.connected:
-                self.get_logger().info("FCU connected")
-                return True
-            else:
-                self.get_logger().error("Error connecting to drone's FCU")
-                return False
+        # self.get_logger().info("Waiting for FCU connection")
+        # while rclpy.ok() and not self.current_state_g.connected:
+        #     rate.sleep()
+        # else:
+        #     if self.current_state_g.connected:
+        #         self.get_logger().info("FCU connected")
+        #         return True
+        #     else:
+        #         self.get_logger().error("Error connecting to drone's FCU")
+        #         return False
+    def wait4connect(self, timeout_sec=10):
+        self.get_logger().info("Waiting for FCU connection...")
+        start_time = self.get_clock().now()
 
+        # Wait for connection with timeout
+        while not self.connected:
+            rclpy.spin_once(self, timeout_sec=0.1)
+            if (self.get_clock().now() - start_time).nanoseconds > timeout_sec * 1e9:
+                self.get_logger().error("Timeout waiting for FCU connection.")
+                raise TimeoutError("Failed to connect to FCU within timeout.")
+
+        self.get_logger().info("FCU is connected!")
     def wait4start(self):
         """This function will hold the program until the user signals the FCU to mode enter GUIDED mode. This is typically done from a switch on the safety pilot's remote or from the Ground Control Station.
 
@@ -223,23 +236,33 @@ class gnc_api(Node):
                 self.get_logger().error("Error startting mission")
                 return False
 
-    def set_mode(self, mode):
-        """This function changes the mode of the drone to a user specified mode. This takes the mode as a string. Ex. set_mode("GUIDED").
+    def set_mode(self, mode: str) -> bool:
+        """
+        Change the mode of the drone using the /mavros/set_mode service.
 
         Args:
-                mode (String): Can be set to modes given in https://ardupilot.org/copter/docs/flight-modes.html
+            mode (str): Desired flight mode (e.g., 'OFFBOARD', 'AUTO.LOITER').
 
         Returns:
-                True (bool): Mode Set successful.
-                False (bool): Mode Set unsuccessful.
+            bool: True if mode change was successful, False otherwise.
         """
-        SetMode_srv = SetMode.Request(0, mode)
-        response = self.set_mode_client.call(SetMode_srv)
-        if response.mode_sent:
-            self.get_logger().info("SetMode Was successful")
+        self.get_logger().info(f"Attempting to change mode to {mode}")
+
+        # Create the request
+        request = SetMode.Request()
+        request.base_mode = 0  # Base mode (set to 0 unless specific base_mode is needed)
+        request.custom_mode = mode  # Desired mode
+
+        # Send the request asynchronously
+        future = self.set_mode_client.call_async(request)
+        rclpy.spin_until_future_complete(self, future)
+
+        # Process the response
+        if future.result() is not None and future.result().mode_sent:
+            self.get_logger().info(f"Mode successfully changed to {mode}.")
             return True
         else:
-            self.get_logger().error("SetMode has failed")
+            self.get_logger().error(f"Failed to change mode to {mode}.")
             return False
 
     def set_speed(self, speed_mps):
@@ -494,23 +517,24 @@ def main(args = None):
 
     gnc = gnc_api(node_name=node_name, namespace=namespace)
     print("done")
-    # try:
-    #     gnc.wait4connect()
-    #     print("connect gnc")
-    #     gnc.wait_for_services()
-    #     print("wait gnc")
-    #     gnc.set_mode("GUIDED")
-    #     print("set mode")
-    #     gnc.arm()
-    #     gnc.takeoff(10.0)
-    #     gnc.set_destination(10, 10, 10, 90)
-    #     rclpy.spin(gnc)
-    # except KeyboardInterrupt:
-    #     pass
-    # finally:
-    #     gnc.destroy_node()
-    #     rclpy.shutdown()
-    #     print("shutting down")
+    try:
+        print("inside try")
+        gnc.wait4connect()
+        print("connect gnc")
+        # gnc.wait_for_services()
+        # print("wait gnc")
+        gnc.set_mode("GUIDED")
+        print("set mode")
+        gnc.arm()
+        gnc.takeoff(10.0)
+        gnc.set_destination(10, 10, 10, 90)
+        rclpy.spin(gnc)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        gnc.destroy_node()
+        rclpy.shutdown()
+        print("shutting down")
     
 
 

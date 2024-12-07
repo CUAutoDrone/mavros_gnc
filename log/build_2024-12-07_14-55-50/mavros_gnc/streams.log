@@ -1,0 +1,30 @@
+[0.548s] Invoking command in '/home/lizychen/mavros_gnc/src/mavros_gnc': PYTHONPATH=/home/lizychen/mavros_gnc/build/mavros_gnc/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/lizychen/mavros_gnc/install/mavros_gnc/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py egg_info --egg-base ../../build/mavros_gnc build --build-base /home/lizychen/mavros_gnc/build/mavros_gnc/build install --record /home/lizychen/mavros_gnc/build/mavros_gnc/install.log --single-version-externally-managed install_data
+[0.644s] /home/lizychen/.local/lib/python3.10/site-packages/setuptools/_distutils/dist.py:261: UserWarning: Unknown distribution option: 'tests_require'
+[0.644s]   warnings.warn(msg)
+[0.703s] running egg_info
+[0.714s] writing ../../build/mavros_gnc/mavros_gnc.egg-info/PKG-INFO
+[0.714s] writing dependency_links to ../../build/mavros_gnc/mavros_gnc.egg-info/dependency_links.txt
+[0.714s] writing entry points to ../../build/mavros_gnc/mavros_gnc.egg-info/entry_points.txt
+[0.715s] writing requirements to ../../build/mavros_gnc/mavros_gnc.egg-info/requires.txt
+[0.715s] writing top-level names to ../../build/mavros_gnc/mavros_gnc.egg-info/top_level.txt
+[0.736s] reading manifest file '../../build/mavros_gnc/mavros_gnc.egg-info/SOURCES.txt'
+[0.737s] writing manifest file '../../build/mavros_gnc/mavros_gnc.egg-info/SOURCES.txt'
+[0.737s] running build
+[0.737s] running build_py
+[0.737s] copying mavros_gnc/PrintColours.py -> /home/lizychen/mavros_gnc/build/mavros_gnc/build/lib/mavros_gnc
+[0.737s] copying mavros_gnc/__init__.py -> /home/lizychen/mavros_gnc/build/mavros_gnc/build/lib/mavros_gnc
+[0.738s] copying mavros_gnc/gnc_api.py -> /home/lizychen/mavros_gnc/build/mavros_gnc/build/lib/mavros_gnc
+[0.738s] running install
+[0.741s] running install_lib
+[0.751s] copying /home/lizychen/mavros_gnc/build/mavros_gnc/build/lib/mavros_gnc/gnc_api.py -> /home/lizychen/mavros_gnc/install/mavros_gnc/lib/python3.10/site-packages/mavros_gnc
+[0.751s] byte-compiling /home/lizychen/mavros_gnc/install/mavros_gnc/lib/python3.10/site-packages/mavros_gnc/gnc_api.py to gnc_api.cpython-310.pyc
+[0.753s] running install_data
+[0.753s] copying resource/mavros_gnc -> /home/lizychen/mavros_gnc/install/mavros_gnc/share/ament_index/resource_index/packages
+[0.753s] copying package.xml -> /home/lizychen/mavros_gnc/install/mavros_gnc/share/mavros_gnc
+[0.754s] running install_egg_info
+[0.764s] removing '/home/lizychen/mavros_gnc/install/mavros_gnc/lib/python3.10/site-packages/mavros_gnc-0.0.0-py3.10.egg-info' (and everything under it)
+[0.764s] Copying ../../build/mavros_gnc/mavros_gnc.egg-info to /home/lizychen/mavros_gnc/install/mavros_gnc/lib/python3.10/site-packages/mavros_gnc-0.0.0-py3.10.egg-info
+[0.765s] running install_scripts
+[0.853s] Installing gnc_api script to /home/lizychen/mavros_gnc/install/mavros_gnc/lib/mavros_gnc
+[0.853s] writing list of installed files to '/home/lizychen/mavros_gnc/build/mavros_gnc/install.log'
+[0.869s] Invoked command in '/home/lizychen/mavros_gnc/src/mavros_gnc' returned '0': PYTHONPATH=/home/lizychen/mavros_gnc/build/mavros_gnc/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/lizychen/mavros_gnc/install/mavros_gnc/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py egg_info --egg-base ../../build/mavros_gnc build --build-base /home/lizychen/mavros_gnc/build/mavros_gnc/build install --record /home/lizychen/mavros_gnc/build/mavros_gnc/install.log --single-version-externally-managed install_data
