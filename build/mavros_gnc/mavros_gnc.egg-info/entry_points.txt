@@ -1,0 +1,2 @@
+[console_scripts]
+gnc_node = mavros_gnc.rosapi:main

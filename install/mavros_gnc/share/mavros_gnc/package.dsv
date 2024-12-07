@@ -1,0 +1,6 @@
+source;share/mavros_gnc/hook/pythonpath.ps1
+source;share/mavros_gnc/hook/pythonpath.dsv
+source;share/mavros_gnc/hook/pythonpath.sh
+source;share/mavros_gnc/hook/ament_prefix_path.ps1
+source;share/mavros_gnc/hook/ament_prefix_path.dsv
+source;share/mavros_gnc/hook/ament_prefix_path.sh

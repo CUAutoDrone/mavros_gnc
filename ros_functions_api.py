@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from iq_gnc.PrintColours import *
+from mavros_gnc.mavros_gnc.PrintColours import *
 import rospy
 from math import atan2, pow, sqrt, degrees, radians, sin, cos
 from geometry_msgs.msg import Pose, PoseStamped, Point, Quaternion
