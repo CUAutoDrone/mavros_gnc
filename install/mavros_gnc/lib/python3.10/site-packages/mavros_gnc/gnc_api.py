@@ -558,7 +558,7 @@ def main(args = None):
         gnc.arm()
         gnc.takeoff(10.0)
         gnc.set_destination(10, 10, 10, 90)
-        gnc.set_destination(0, 0, 0, 0)
+        
         rclpy.spin(gnc)
     except KeyboardInterrupt:
         pass
