@@ -7,7 +7,7 @@ from rclpy.node import Node
 from rclpy.duration import Duration
 from rclpy import spin_once
 from math import atan2, pow, sqrt, degrees, radians, sin, cos
-from geometry_msgs.msg import Pose, PoseStamped, Point, Quaternion
+from geometry_msgs.msg import Pose, PoseStamped, Point, Quaternion, TwistStamped
 from nav_msgs.msg import Odometry
 from mavros_msgs.msg import State
 from mavros_msgs.srv import CommandTOL
@@ -50,6 +50,7 @@ class gnc_api(Node):
         print("set namespace")
         #Publishers
         self.local_pose_pub = self.create_publisher(PoseStamped, f'{self.ns}mavros/setpoint_position/local', 10)
+        self.vel_pub = self.create_publisher(TwistStamped, '/mavros/setpoint_velocity/cmd_vel', 10)
         print("set publisher")
         '''
         self.local_pos_pub = rclpy.Publisher(
@@ -529,14 +530,32 @@ class gnc_api(Node):
             return True
         
     #setting the velocity of the drone
-    def velocity (self, velocity) :
-        if velocity > 0:
-             self.set_speed(self, abs(velocity))
-             self.set_heading(self.get_current_heading(self))
-        
-        else: 
-            self.set_speed(self, abs(velocity))
-            self.set_heading(-1*self.get_current_heading(self))
+    def set_velocity (self, linx, liny, linz, angz) :
+        # Create a TwistStamped message
+        velocity_msg = TwistStamped()
+
+        # Fill in the header
+        velocity_msg.header.stamp = self.get_clock().now().to_msg()
+        velocity_msg.header.frame_id = "base_link"
+
+        # Set linear velocities
+        velocity_msg.twist.linear.x = linx  # Move forward
+        velocity_msg.twist.linear.y = liny  # No lateral movement
+        velocity_msg.twist.linear.z = linz  # Maintain altitude
+
+        # Set angular velocities
+        velocity_msg.twist.angular.x = 0.0
+        velocity_msg.twist.angular.y = 0.0
+        velocity_msg.twist.angular.z = angz  # No yaw rotation
+
+        # Publish the message
+        self.vel_pub.publish(velocity_msg)
+        self.get_logger().info("Published velocity command.")
+
+    def publish_velocity_commands(self, lx, ly, lz, az):
+        while rclpy.ok():
+            self.set_velocity(lx, ly, lz, az)  # Move forward at 1 m/s
+            rclpy.spin_once(self, timeout_sec=0.1)  # Publish at ~10 Hz
 
 def main(args = None):
     print("starting gnc")
@@ -556,9 +575,10 @@ def main(args = None):
         gnc.set_mode("GUIDED")
         print("set mode")
         gnc.arm()
-        gnc.takeoff(1.0)
-        gnc.set_destination(10, 10, 10, 90)
-        
+        gnc.takeoff(5.0)
+        gnc.publish_velocity_commands(1.0, 1.0, 1.0, 0.0)
+        print("second publish")
+        gnc.publish_velocity_commands(-1.0, -1.0, 1.0, 0.0)
         rclpy.spin(gnc)
     except KeyboardInterrupt:
         pass
