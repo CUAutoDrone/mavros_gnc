@@ -556,7 +556,7 @@ def main(args = None):
         gnc.set_mode("GUIDED")
         print("set mode")
         gnc.arm()
-        gnc.takeoff(10.0)
+        gnc.takeoff(1.0)
         gnc.set_destination(10, 10, 10, 90)
         
         rclpy.spin(gnc)
