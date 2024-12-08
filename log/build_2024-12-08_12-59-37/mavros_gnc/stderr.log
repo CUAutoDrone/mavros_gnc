@@ -1,0 +1,7 @@
+/home/lizychen/.local/lib/python3.10/site-packages/setuptools/_distutils/dist.py:261: UserWarning: Unknown distribution option: 'tests_require'
+  warnings.warn(msg)
+  File "/home/lizychen/mavros_gnc/install/mavros_gnc/lib/python3.10/site-packages/mavros_gnc/gnc_api.py", line 470
+    return sqrt((target_x - current_x)  2 + (target_y - current_y)  2 + (target_z - current_z) ** 2)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+SyntaxError: invalid syntax. Perhaps you forgot a comma?
+

@@ -346,7 +346,7 @@ class gnc_api(Node):
         self.get_logger().info(f"Heading quaternion set to: x={qx}, y={qy}, z={qz}, w={qw}")
 
 
-    def set_destination(self, x, y, z, psi):
+    '''def set_destination(self, x, y, z, psi):
         """This function is used to command the drone to fly to a waypoint. These waypoints should be specified in the local reference frame. This is typically defined from the location the drone is launched. Psi is counterclockwise rotation following the drone's reference frame defined by the x axis through the right side of the drone with the y axis through the front of the drone.
 
         Args:
@@ -391,8 +391,85 @@ class gnc_api(Node):
         self.waypoint_g.pose.position = Point(x=x_global, y=y_global, z=z_global)
 
         # Publish the waypoint to the local position publisher
-        self.local_pose_pub.publish(self.waypoint_g)
-        
+        self.local_pose_pub.publish(self.waypoint_g)'''
+    def set_destination(self, x, y, z, tolerance=5.0, max_speed=2.0):
+        """
+        Move the drone to a destination using velocity control.
+
+        Args:
+            x (float): Target X coordinate (m).
+            y (float): Target Y coordinate (m).
+            z (float): Target Z coordinate (m).
+            tolerance (float): Distance tolerance (m).
+            max_speed (float): Maximum velocity (m/s).
+        """
+        rate = self.create_rate(10)  # 10 Hz
+        while rclpy.ok():
+            rclpy.spin_once(self)
+            # Get the current position
+            current_x = self.current_pose_g.pose.pose.position.x
+            current_y = self.current_pose_g.pose.pose.position.y
+            current_z = self.current_pose_g.pose.pose.position.z
+
+            # Calculate distance to the target
+            distance = self.distance_to_target(x, y, z)
+            self.get_logger().info(f"Distance to target: {distance:.2f} m")
+
+            # If the drone is within tolerance, stop
+            if distance <= tolerance:
+                self.get_logger().info("Reached the destination.")
+                break
+
+            # Calculate velocity components
+            velocity_msg = TwistStamped()
+            velocity_msg.header.stamp = self.get_clock().now().to_msg()
+            velocity_msg.header.frame_id = "base_link"
+
+            # Proportional velocity control
+            vx = (x - current_x) / max(distance, 1e-6) * min(max_speed, distance)
+            vy = (y - current_y) / max(distance, 1e-6) * min(max_speed, distance)
+            vz = (z - current_z) / max(distance, 1e-6) * min(max_speed, distance)
+
+            velocity_msg.twist.linear.x = vx
+            velocity_msg.twist.linear.y = vy
+            velocity_msg.twist.linear.z = vz
+
+            # Publish the velocity command
+            self.vel_pub.publish(velocity_msg)
+
+            # Continue the loop
+            
+            time.sleep(0.1)
+
+        # Stop the drone after reaching the target
+        print("out of destination loop")
+        self.stop_drone()
+    def stop_drone(self):
+        """Publish zero velocity to stop the drone."""
+        stop_msg = TwistStamped()
+        stop_msg.header.stamp = self.get_clock().now().to_msg()
+        stop_msg.header.frame_id = "base_link"
+
+        stop_msg.twist.linear.x = 0.0
+        stop_msg.twist.linear.y = 0.0
+        stop_msg.twist.linear.z = 0.0
+        stop_msg.twist.angular.x = 0.0
+        stop_msg.twist.angular.y = 0.0
+        stop_msg.twist.angular.z = 0.0
+
+        self.vel_pub.publish(stop_msg)
+        self.get_logger().info("Drone stopped.")
+
+    def position_callback(self, msg):
+        """Callback to update the drone's current position."""
+        self.current_position = msg
+
+    def distance_to_target(self, target_x, target_y, target_z):
+        """Calculate the Euclidean distance to the target."""
+        current_x = self.current_pose_g.pose.pose.position.x
+        current_y = self.current_pose_g.pose.pose.position.y
+        current_z = self.current_pose_g.pose.pose.position.z
+        return sqrt((target_x - current_x) ** 2 + (target_y - current_y) ** 2 + (target_z - current_z) ** 2)
     def arm(self):
         """Arms the drone for takeoff.
 
@@ -556,6 +633,23 @@ class gnc_api(Node):
         while rclpy.ok():
             self.set_velocity(lx, ly, lz, az)  # Move forward at 1 m/s
             rclpy.spin_once(self, timeout_sec=0.1)  # Publish at ~10 Hz
+    def get_user_set_destination_input(self):
+        while rclpy.ok():
+            try:
+                # Prompt user for destination coordinates
+                x = float(input("Enter X coordinate (m): "))
+                y = float(input("Enter Y coordinate (m): "))
+                z = float(input("Enter Z coordinate (m): "))
+                psi = float(input("Enter heading angle (psi, degrees): "))
+
+                # Set the destination based on user input
+                self.set_destination(x, y, z, psi)
+
+            except ValueError:
+                self.get_logger().error("Invalid input. Please enter numeric values.")
+            except KeyboardInterrupt:
+                self.get_logger().info("User input stopped. Shutting down.")
+                break
 
 def main(args = None):
     print("starting gnc")
@@ -576,9 +670,10 @@ def main(args = None):
         print("set mode")
         gnc.arm()
         gnc.takeoff(5.0)
-        gnc.publish_velocity_commands(1.0, 1.0, 1.0, 0.0)
-        print("second publish")
-        gnc.publish_velocity_commands(-1.0, -1.0, 1.0, 0.0)
+        gnc.set_destination(10, 10, 10)
+        time.sleep(5.0)
+        print("destination 2")
+        gnc.set_destination(-10, -10, 10)
         rclpy.spin(gnc)
     except KeyboardInterrupt:
         pass
